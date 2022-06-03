@@ -1,0 +1,58 @@
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id    String @id @default(cuid())
+  email String @unique
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  password Password?
+  notes    Note[]
+}
+
+model Password {
+  hash String
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  userId String @unique
+}
+
+model Note {
+  id    String @id @default(cuid())
+  title String
+  body  String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  userId String
+}
+
+model Section {
+  id    Int @id @default(autoincrement())
+  name  String
+
+  shopping_list_items  ShoppingListItem[]
+
+  @@unique([name])
+}
+
+model ShoppingListItem {
+  id          Int @id @default(autoincrement())
+  name        String
+  need_to_buy Boolean @default(false)
+
+  section   Section?   @relation(fields: [sectionId], references: [id], onDelete: SetNull, onUpdate: SetNull)
+  sectionId Int?
+
+  @@unique([name])
+}
