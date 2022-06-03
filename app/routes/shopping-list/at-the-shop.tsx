@@ -1,7 +1,6 @@
-import { useEffect } from 'react';
 import type { ActionFunction, LoaderFunction } from "@remix-run/node";
 import { json } from "@remix-run/node";
-import { Form, useLoaderData } from "@remix-run/react";
+import { Form, useLoaderData, useSubmit } from "@remix-run/react";
 import type { Section } from "@prisma/client";
 import { getShoppingListItems, toggleNeedToBuy } from "~/models/shopping-list-item.server";
 import { getSections } from "~/models/section.server";
@@ -39,17 +38,25 @@ export default function AtTheShopPage() {
 
   const filteredItems = shoppingListItems.filter(i => sectionId === undefined || i.sectionId === sectionId);
 
-  useEffect(() => {
-    window.document.getElementById('sectionId')?.addEventListener('change', () => {
-      window.document.getElementById('sectionFilterForm').submit();
-      
-      // window.document.getElementById('sectionFilterSubmitButton').innerHTML = 'Loading items...';
-    });
-  }, []);
+  let submit = useSubmit();
+
+  function applySelection(event: any) {
+    submit(event.currentTarget);
+
+    const button = window.document.getElementById('sectionFilterSubmitButton');
+
+    button.innerHTML = 'Loading items...';
+    button.disabled = true;
+    
+    setTimeout(() => {
+      button.innerHTML = 'Apply';
+      button.disabled = false;
+    }, 750)
+  }
 
   return (
     <div>
-      <form id="sectionFilterForm" method="get" className="inline">
+      <Form method="get" className="inline" onChange={event => applySelection(event)}>
         <label className="mr-2" htmlFor="select">Filter by section:</label>
         <select
           name="sectionId" id="sectionId"
@@ -61,8 +68,8 @@ export default function AtTheShopPage() {
             <option value={section.id} key={section.id}>{section.name}</option>
           ))}
         </select>
-        <button id="sectionFilterSubmitButton" type="submit" className="ml-2 py-1 px-3 bg-yellow-600 text-white">Apply</button>
-      </form>
+        <button id="sectionFilterSubmitButton" type="submit" className="ml-2 py-1 px-3 bg-yellow-600 text-white disabled:opacity-50">Apply</button>
+      </Form>
 
       <hr className="mt-2" />
 
