@@ -1,9 +1,10 @@
 import type { ActionFunction, LoaderFunction } from "@remix-run/node";
 import { json } from "@remix-run/node";
-import { Form, useLoaderData, useSubmit } from "@remix-run/react";
-import type { Section } from "@prisma/client";
+import { Form, useLoaderData, useLocation } from "@remix-run/react";
 import { getShoppingListItems, toggleNeedToBuy } from "~/models/shopping-list-item.server";
+import SectionFilter from "~/components/SectionFilter"
 import { getSections } from "~/models/section.server";
+import { redirect } from "@remix-run/server-runtime";
 
 type LoaderData = {
   sectionId? : number,
@@ -16,7 +17,7 @@ export const loader: LoaderFunction = async ({request}) => {
   const sectionId = Number(url.searchParams.get("sectionId")) || undefined;
 
   return json<LoaderData>({
-    sectionId: sectionId,
+    sectionId,
     sections: await getSections(),
     shoppingListItems: await getShoppingListItems(true),
   });
@@ -24,11 +25,22 @@ export const loader: LoaderFunction = async ({request}) => {
 
 export const action: ActionFunction = async ({ request }) => {
   const formData = await request.formData();
-  
-  const id = Number(formData.get("id"));
-  const need_to_buy = Boolean(Number(formData.get("need_to_buy")));
 
-  await toggleNeedToBuy({ id, need_to_buy});
+  switch (formData.get('action-type')) {
+    case "put-item-in-cart":
+      const id = Number(formData.get("id"));
+      const need_to_buy = Boolean(Number(formData.get("need_to_buy")));
+
+      await toggleNeedToBuy({ id, need_to_buy});
+
+      break;
+
+    case "filter-by-section":
+      const url = new URL(request.url);
+      url.searchParams.set('sectionId', formData.get("sectionId"));
+
+      return redirect(url);
+  }
 
   return null;
 };
@@ -38,38 +50,11 @@ export default function AtTheShopPage() {
 
   const filteredItems = shoppingListItems.filter(i => sectionId === undefined || i.sectionId === sectionId);
 
-  let submit = useSubmit();
-
-  function applySelection(event: any) {
-    submit(event.currentTarget);
-
-    const button = window.document.getElementById('sectionFilterSubmitButton');
-
-    button.innerHTML = 'Loading items...';
-    button.disabled = true;
-    
-    setTimeout(() => {
-      button.innerHTML = 'Apply';
-      button.disabled = false;
-    }, 750)
-  }
+  let location = useLocation();
 
   return (
     <div>
-      <Form method="get" className="inline" onChange={event => applySelection(event)}>
-        <label className="mr-2" htmlFor="select">Filter by section:</label>
-        <select
-          name="sectionId" id="sectionId"
-          defaultValue={sectionId}
-          className="ml-1 border border-yellow-600 bg-white py-1 px-2"
-        >
-          <option value="" key="null">All sections</option>
-          {sections.map((section: Section) => (
-            <option value={section.id} key={section.id}>{section.name}</option>
-          ))}
-        </select>
-        <button id="sectionFilterSubmitButton" type="submit" className="ml-2 py-1 px-3 bg-yellow-600 text-white disabled:opacity-50">Apply</button>
-      </Form>
+      <SectionFilter sectionId={sectionId} sections={sections} />
 
       <hr className="mt-2" />
 
@@ -84,7 +69,8 @@ export default function AtTheShopPage() {
               <li key={item.id} className="py-2">
                 {item.name}
                 &nbsp;&mdash;&nbsp;
-                <Form method="post" className="inline">
+                <Form action={location.pathname+location.search} method="post" className="inline">
+                  <input type="hidden" id="action-type" name="action-type" value="put-item-in-cart" />
                   <input type="hidden" id="id" name="id" value={item.id} />
                   <input type="hidden" id="need_to_buy" name="need_to_buy" value={Number(!item.need_to_buy)} />
                   <button type="submit" className="text-yellow-600">Got it!</button>
